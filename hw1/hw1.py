@@ -1,9 +1,14 @@
+from collections import defaultdict
+import os
+import pickle
+
 import numpy as np
 import random
 import tensorflow as tf
 from load_data import DataGenerator
 from tensorflow.python.platform import flags
 from tensorflow.keras import layers
+
 
 FLAGS = flags.FLAGS
 
@@ -15,6 +20,9 @@ flags.DEFINE_integer('num_samples', 1,
 
 flags.DEFINE_integer('meta_batch_size', 16,
                      'Number of N-way classification tasks per batch')
+
+flags.DEFINE_string('logdir', './logs',
+                    'Directory where logs will be saved.')
 
 
 def loss_function(preds, labels):
@@ -28,12 +36,14 @@ def loss_function(preds, labels):
     """
     #############################
     #### YOUR CODE GOES HERE ####
-    pass
+    last_N_preds = preds[:, -1:]
+    last_N_labels = labels[:, -1:]
+    loss = tf.losses.softmax_cross_entropy(last_N_labels, last_N_preds)
+    return tf.reduce_mean(loss)
     #############################
 
 
 class MANN(tf.keras.Model):
-
     def __init__(self, num_classes, samples_per_class):
         super(MANN, self).__init__()
         self.num_classes = num_classes
@@ -52,7 +62,25 @@ class MANN(tf.keras.Model):
         """
         #############################
         #### YOUR CODE GOES HERE ####
-        pass
+        B, K, N, D = input_images.shape
+        K -= 1
+
+        # zero the last labels per batch (no slice assign on this tf version)
+        input_labels = tf.concat(
+            (input_labels[:, :-1], tf.zeros_like(input_labels[:, -1:])), axis=1)
+
+        # concatenate the image vectors the label vectors
+        x = tf.concat((input_images, input_labels), axis=-1)
+
+        # unroll axes 1 and 2 into one 'timesteps' axis
+        x = tf.reshape(x, (-1, (K + 1) * N, D + N))
+
+        # feed the input to the network
+        out = self.layer1(x)
+        out = self.layer2(out)
+
+        # reshape to match the output shape
+        out = tf.reshape(out, (-1, K + 1, N, N))
         #############################
         return out
 
@@ -71,6 +99,7 @@ loss = loss_function(out, labels)
 optim = tf.train.AdamOptimizer(0.001)
 optimizer_step = optim.minimize(loss)
 
+logs = defaultdict(list) # minimalist logging for plots
 with tf.Session() as sess:
     sess.run(tf.local_variables_initializer())
     sess.run(tf.global_variables_initializer())
@@ -92,4 +121,18 @@ with tf.Session() as sess:
                 FLAGS.num_classes, FLAGS.num_classes)
             pred = pred[:, -1, :, :].argmax(2)
             l = l[:, -1, :, :].argmax(2)
-            print("Test Accuracy", (1.0 * (pred == l)).mean())
+            test_accuracy = (1.0 * (pred == l)).mean()
+            print("Test Accuracy", test_accuracy)
+
+            # log metrics
+            logs['iteration'].append(step)
+            logs['train_loss'].append(ls)
+            logs['test_loss'].append(tls)
+            logs['test_accuracy'].append(test_accuracy)
+
+# dump logs
+os.makedirs(FLAGS.logdir, exist_ok=True)
+run_name = 'hw1_N={}_K={}_B={}.pkl'.format(
+    FLAGS.num_classes, FLAGS.num_samples, FLAGS.meta_batch_size)
+with open(os.path.join(FLAGS.logdir, run_name), "wb") as f:
+    pickle.dump(logs, f)
