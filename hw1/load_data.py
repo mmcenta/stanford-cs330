@@ -60,7 +60,7 @@ class DataGenerator(object):
         self.num_samples_per_class = num_samples_per_class
         self.num_classes = num_classes
 
-        data_folder = config.get('data_folder', './omniglot_resized')
+        data_folder = config.get('data_folder', '../data/omniglot_resized')
         self.img_size = config.get('img_size', (28, 28))
 
         self.dim_input = np.prod(self.img_size)
@@ -101,7 +101,39 @@ class DataGenerator(object):
 
         #############################
         #### YOUR CODE GOES HERE ####
-        pass
+        all_image_batches = []
+        all_label_batches = []
+        for _ in range(batch_size):
+            # create batches of K lists
+            images = [list() for _ in range(self.num_samples_per_class)]
+            labels = [list() for _ in range(self.num_samples_per_class)]
+            next_idx = [0] * self.num_classes
+
+            # sample the classes and images
+            classes = np.random.choice(folders, size=(self.num_classes,))
+            labels_and_paths = get_images(classes, range(self.num_classes),
+                nb_samples=self.num_samples_per_class)
+
+            # load images and one-hot encode labels
+            for label, path in labels_and_paths:
+                # only add one class instance per sample list
+                idx = next_idx[label]
+
+                image = image_file_to_array(path, 784)
+                one_hot_label = np.zeros((self.num_classes,))
+                one_hot_label[label] = 1.
+
+                images[idx].append(image)
+                labels[idx].append(one_hot_label)
+
+                next_idx[label] += 1
+
+            all_image_batches.append(images)
+            all_label_batches.append(labels)
+
+        # convert to numpy arrays
+        all_image_batches = np.array(all_image_batches)
+        all_label_batches = np.array(all_label_batches)
         #############################
 
         return all_image_batches, all_label_batches
