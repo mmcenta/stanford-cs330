@@ -19,10 +19,16 @@ flags.DEFINE_integer('num_samples', 1,
                      'number of examples used for inner gradient update (K for K-shot learning).')
 
 flags.DEFINE_integer('meta_batch_size', 16,
-                     'Number of N-way classification tasks per batch')
+                     'Number of N-way classification tasks per batch.')
 
 flags.DEFINE_string('logdir', './logs',
                     'Directory where logs will be saved.')
+
+flags.DEFINE_string('name', '',
+                    'Name of the run (used when saving logs).')
+
+flags.DEFINE_string('label', '',
+                    'Label of this run in plots.')
 
 
 def loss_function(preds, labels):
@@ -131,8 +137,10 @@ with tf.Session() as sess:
             logs['test_accuracy'].append(test_accuracy)
 
 # dump logs
+logs['name'] = FLAGS.name
+logs['label'] = FLAGS.label
 os.makedirs(FLAGS.logdir, exist_ok=True)
-run_name = 'hw1_N={}_K={}_B={}.pkl'.format(
-    FLAGS.num_classes, FLAGS.num_samples, FLAGS.meta_batch_size)
-with open(os.path.join(FLAGS.logdir, run_name), "wb") as f:
+logfile = '{}_N={}_K={}_B={}.pkl'.format(
+    FLAGS.name, FLAGS.num_classes, FLAGS.num_samples, FLAGS.meta_batch_size)
+with open(os.path.join(FLAGS.logdir, logfile), "wb") as f:
     pickle.dump(logs, f)
