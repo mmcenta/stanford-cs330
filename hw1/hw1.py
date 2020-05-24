@@ -30,6 +30,12 @@ flags.DEFINE_string('name', '',
 flags.DEFINE_string('label', '',
                     'Label of this run in plots.')
 
+flags.DEFINE_integer('n_layers', 1,
+                     'Number of hidden layers in the model.')
+
+flags.DEFINE_integer('layer_size', 128,
+                     'Number of units in the hidden layers.')
+
 
 def loss_function(preds, labels):
     """
@@ -50,12 +56,17 @@ def loss_function(preds, labels):
 
 
 class MANN(tf.keras.Model):
-    def __init__(self, num_classes, samples_per_class):
+    def __init__(self, num_classes, samples_per_class,
+                n_layers=1, layer_units=128):
         super(MANN, self).__init__()
         self.num_classes = num_classes
         self.samples_per_class = samples_per_class
-        self.layer1 = tf.keras.layers.LSTM(128, return_sequences=True)
-        self.layer2 = tf.keras.layers.LSTM(num_classes, return_sequences=True)
+
+        self.hidden_layers = []
+        for _ in range(n_layers):
+            self.hidden_layers.append(tf.keras.layers.LSTM(layer_units,
+                return_sequences=True))
+        self.output_layer = tf.keras.layers.LSTM(num_classes, return_sequences=True)
 
     def call(self, input_images, input_labels):
         """
@@ -82,8 +93,9 @@ class MANN(tf.keras.Model):
         x = tf.reshape(x, (-1, (K + 1) * N, D + N))
 
         # feed the input to the network
-        out = self.layer1(x)
-        out = self.layer2(out)
+        for layer in self.hidden_layers:
+            x = layer(x)
+        out = self.output_layer(x)
 
         # reshape to match the output shape
         out = tf.reshape(out, (-1, K + 1, N, N))
