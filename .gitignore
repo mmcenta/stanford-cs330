@@ -136,3 +136,6 @@ data/
 
 # logs
 logs/
+
+# VSCode configurations
+.vscode/
