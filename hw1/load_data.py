@@ -28,17 +28,19 @@ def get_images(paths, labels, nb_samples=None, shuffle=True):
     return images_labels
 
 
-def image_file_to_array(filename, dim_input):
+def image_file_to_array(filename, img_shape, flatten=True):
     """
     Takes an image path and returns numpy array
     Args:
         filename: Image filename
-        dim_input: Flattened shape of image
+        img_shape: Shape of the image
     Returns:
         1 channel image
     """
     image = misc.imread(filename)
-    image = image.reshape([dim_input])
+    if flatten:
+        w, h = img_shape
+        image = image.reshape([w * h])
     image = image.astype(np.float32) / 255.0
     image = 1.0 - image
     return image
@@ -62,6 +64,7 @@ class DataGenerator(object):
 
         data_folder = config.get('data_folder', '../data/omniglot_resized')
         self.img_size = config.get('img_size', (28, 28))
+        self.flatten = config.get('flatten', False)
 
         self.dim_input = np.prod(self.img_size)
         self.dim_output = self.num_classes
@@ -119,7 +122,8 @@ class DataGenerator(object):
                 # only add one class instance per sample list
                 idx = next_idx[label]
 
-                image = image_file_to_array(path, 784)
+
+                image = image_file_to_array(path, self.img_size, flatten=self.flatten)
                 one_hot_label = np.zeros((self.num_classes,))
                 one_hot_label[label] = 1.
 
