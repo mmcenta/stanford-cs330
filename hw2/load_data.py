@@ -64,7 +64,7 @@ class DataGenerator(object):
 		self.num_meta_test_samples_per_class = num_meta_test_samples_per_class
 		self.num_meta_test_classes = num_meta_test_classes
 
-		data_folder = config.get('data_folder', './omniglot_resized')
+		data_folder = config.get('data_folder', '../data/omniglot_resized')
 		self.img_size = config.get('img_size', (28, 28))
 
 		self.dim_input = np.prod(self.img_size)

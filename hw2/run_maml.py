@@ -63,8 +63,9 @@ def meta_train(model, saver, sess, exp_string, data_generator, resume_itr=0):
 
 		# sample a batch of training data and partition into
 		# group a (inputa, labela) and group b (inputb, labelb)
-
-		inputa, inputb, labela, labelb = None, None, None, None
+		inputs, labels = data_generator.sample_batch("meta_train", FLAGS.meta_train_batch_size)
+    	inputa, inputb, labela, labelb = (inputs[:, :FLAGS.meta_train_k_shot], inputs[:, FLAGS.meta_train_k_shot:],
+										  labels[:, :FLAGS.meta_train_k_shot], labels[:, FLAGS.meta_train_k_shot:])
 		#############################
 		feed_dict = {model.inputa: inputa, model.inputb: inputb,  model.labela: labela, model.labelb: labelb}
 
@@ -96,8 +97,9 @@ def meta_train(model, saver, sess, exp_string, data_generator, resume_itr=0):
 
 		    # sample a batch of validation data and partition into
 		    # group a (inputa, labela) and group b (inputb, labelb)
-
-			inputa, inputb, labela, labelb = None, None, None, None
+			inputs, labels = data_generator.sample_batch('meta_val')
+			inputa, inputb, labela, labelb = (inputs[:, :FLAGS.meta_train_k_shot], inputs[:, FLAGS.meta_train_k_shot:],
+											  labels[:, :FLAGS.meta_train_k_shot], labels[:, FLAGS.meta_train_k_shot:])
 			#############################
 			feed_dict = {model.inputa: inputa, model.inputb: inputb,  model.labela: labela, model.labelb: labelb, model.meta_lr: 0.0}
 			input_tensors = [model.total_accuracy1, model.total_accuracies2[FLAGS.num_inner_updates-1]]
@@ -124,8 +126,9 @@ def meta_test(model, saver, sess, exp_string, data_generator, meta_test_num_inne
 
 		# sample a batch of test data and partition into
 		# group a (inputa, labela) and group b (inputb, labelb)
-
-		inputa, inputb, labela, labelb = None, None, None, None
+		inputs, labels = data_generator.sample_batch("meta_train", FLAGS.meta_train_batch_size)
+    	inputa, inputb, labela, labelb = (inputs[:, :FLAGS.k_shot], inputs[:, FLAGS.k_shot:],
+										  labels[:, :FLAGS.k_shot], labels[:, FLAGS.k_shot:])
 		#############################
 		feed_dict = {model.inputa: inputa, model.inputb: inputb, model.labela: labela, model.labelb: labelb, model.meta_lr: 0.0}
 
