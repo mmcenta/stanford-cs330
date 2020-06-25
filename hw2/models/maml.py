@@ -57,27 +57,57 @@ class MAML:
 						inp: a tuple (inputa, inputb, labela, labelb), where inputa and labela are the inputs and
 							labels used for calculating inner loop gradients and inputa and labela are the inputs and
 							labels used for evaluating the model after inner updates.
-						reuse: reuse the model parameters or not. Hint: You can just pass its default value to the 
+						reuse: reuse the model parameters or not. Hint: You can just pass its default value to the
 							forwawrd function
 					Returns:
 						task_output: a list of outputs, losses and accuracies at each inner update
 				"""
 				inputa, inputb, labela, labelb = inp
-
 				#############################
 				#### YOUR CODE GOES HERE ####
 				# perform num_inner_updates to get modified weights
 				# modified weights should be used to evaluate performance
-				# Note that at each inner update, always use inputa and labela for calculating gradients 
+				# Note that at each inner update, always use inputa and labela for calculating gradients
 				# and use inputb and labels for evaluating performance
 				# HINT: you may wish to use tf.gradients()
-				
+				def compute_accuracy(output, label):
+					label = tf.reshape(label, tf.shape(output))
+					return tf.reduce_mean(tf.cast(tf.equal(
+						tf.argmax(output, axis=-1), tf.argmax(label, axis=-1)),
+						dtype=tf.float32))
+
 				# output, loss, and accuracy of group a before performing inner gradientupdate
-				task_outputa, task_lossa, task_accuracya = None, None, None
+				task_outputa = self.forward_conv(inputb, weights, reuse=reuse, scope='a')
+				task_lossa = self.loss_func(task_outputa, labelb)
+				task_accuracya = compute_accuracy(task_outputa, labelb)
+
 				# lists to keep track of outputs, losses, and accuracies of group b for each inner_update
 				# where task_outputbs[i], task_lossesb[i], task_accuraciesb[i] are the output, loss, and accuracy
 				# after i+1 inner gradient updates
 				task_outputbs, task_lossesb, task_accuraciesb = [], [], []
+
+				for _ in range(num_inner_updates):
+					# compute loss with respect to group a
+					outputa = self.forward_conv(inputa, weights, reuse=True, scope='a')
+					lossa = self.loss_func(outputa, labela)
+
+					# compute gradients
+					weight_keys = list(weights.keys())
+					weight_values = [weights[k] for k in weight_keys]
+					weight_grads = tf.gradients(lossa, weight_values)
+
+					# take a gradient step
+					updated_weight_values = [(w - self.inner_update_lr * g)
+						for w, g in zip(weight_values, weight_grads)]
+					print(updated_weight_values[0])
+					for key, value in zip(weight_keys, updated_weight_values):
+						weights[key] = value
+
+					# evaluate new weights on group b
+					outputb = self.forward_conv(inputb, weights, reuse=reuse, scope='b')
+					task_outputbs.append(outputb)
+					task_lossesb.append(self.loss_func(outputb, labelb))
+					task_accuraciesb.append(compute_accuracy(outputb, labelb))
 				#############################
 
 				task_output = [task_outputa, task_outputbs, task_lossa, task_lossesb, task_accuracya, task_accuraciesb]

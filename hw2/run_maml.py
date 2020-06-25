@@ -33,9 +33,9 @@ flags.DEFINE_integer('num_filters', 16, 'number of filters for conv nets.')
 flags.DEFINE_bool('learn_inner_update_lr', False, 'learn the per-layer update learning rate.')
 
 ## Logging, saving, and testing options
-flags.DEFINE_string('data_path', './omniglot_resized', 'path to the dataset.')
+flags.DEFINE_string('data_path', '../data/omniglot_resized', 'path to the dataset.')
 flags.DEFINE_bool('log', True, 'if false, do not log summaries, for debugging code.')
-flags.DEFINE_string('logdir', '/tmp/data', 'directory for summaries and checkpoints.')
+flags.DEFINE_string('logdir', 'logs', 'directory for summaries and checkpoints.')
 flags.DEFINE_bool('resume', False, 'resume training if there is a model available')
 flags.DEFINE_bool('meta_train', True, 'True to meta-train, False to meta-test.')
 flags.DEFINE_integer('meta_test_iter', -1, 'iteration to load model (-1 for latest model)')
@@ -63,9 +63,9 @@ def meta_train(model, saver, sess, exp_string, data_generator, resume_itr=0):
 
 		# sample a batch of training data and partition into
 		# group a (inputa, labela) and group b (inputb, labelb)
-		inputs, labels = data_generator.sample_batch("meta_train", FLAGS.meta_train_batch_size)
-    	inputa, inputb, labela, labelb = (inputs[:, :FLAGS.meta_train_k_shot], inputs[:, FLAGS.meta_train_k_shot:],
-										  labels[:, :FLAGS.meta_train_k_shot], labels[:, FLAGS.meta_train_k_shot:])
+		inputs, labels = data_generator.sample_batch("meta_train", FLAGS.meta_batch_size)
+		inputa, inputb, labela, labelb = (inputs[:, :FLAGS.meta_train_k_shot], inputs[:, FLAGS.meta_train_k_shot:],
+											labels[:, :FLAGS.meta_train_k_shot], labels[:, FLAGS.meta_train_k_shot:])
 		#############################
 		feed_dict = {model.inputa: inputa, model.inputb: inputb,  model.labela: labela, model.labelb: labelb}
 
@@ -97,9 +97,9 @@ def meta_train(model, saver, sess, exp_string, data_generator, resume_itr=0):
 
 		    # sample a batch of validation data and partition into
 		    # group a (inputa, labela) and group b (inputb, labelb)
-			inputs, labels = data_generator.sample_batch('meta_val')
+			inputs, labels = data_generator.sample_batch('meta_val', FLAGS.meta_batch_size)
 			inputa, inputb, labela, labelb = (inputs[:, :FLAGS.meta_train_k_shot], inputs[:, FLAGS.meta_train_k_shot:],
-											  labels[:, :FLAGS.meta_train_k_shot], labels[:, FLAGS.meta_train_k_shot:])
+												labels[:, :FLAGS.meta_train_k_shot], labels[:, FLAGS.meta_train_k_shot:])
 			#############################
 			feed_dict = {model.inputa: inputa, model.inputb: inputb,  model.labela: labela, model.labelb: labelb, model.meta_lr: 0.0}
 			input_tensors = [model.total_accuracy1, model.total_accuracies2[FLAGS.num_inner_updates-1]]
@@ -126,9 +126,9 @@ def meta_test(model, saver, sess, exp_string, data_generator, meta_test_num_inne
 
 		# sample a batch of test data and partition into
 		# group a (inputa, labela) and group b (inputb, labelb)
-		inputs, labels = data_generator.sample_batch("meta_train", FLAGS.meta_train_batch_size)
-    	inputa, inputb, labela, labelb = (inputs[:, :FLAGS.k_shot], inputs[:, FLAGS.k_shot:],
-										  labels[:, :FLAGS.k_shot], labels[:, FLAGS.k_shot:])
+		inputs, labels = data_generator.sample_batch("meta_test", FLAGS.meta_batch_size)
+		inputa, inputb, labela, labelb = (inputs[:, :FLAGS.k_shot], inputs[:, FLAGS.k_shot:],
+											labels[:, :FLAGS.k_shot], labels[:, FLAGS.k_shot:])
 		#############################
 		feed_dict = {model.inputa: inputa, model.inputb: inputb, model.labela: labela, model.labelb: labelb, model.meta_lr: 0.0}
 
