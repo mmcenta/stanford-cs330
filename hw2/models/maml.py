@@ -8,11 +8,13 @@ from utils import xent, conv_block
 FLAGS = flags.FLAGS
 
 class MAML:
-	def __init__(self, dim_input=1, dim_output=1, meta_test_num_inner_updates=5):
+	def __init__(self, dim_input=1, dim_output=1,
+				meta_test_num_inner_updates=5, learn_inner_lr=False):
 		""" must call construct_model() after initializing MAML! """
 		self.dim_input = dim_input
 		self.dim_output = dim_output
 		self.inner_update_lr = FLAGS.inner_update_lr
+		self.learn_inner_lr = learn_inner_lr
 		self.meta_lr = tf.placeholder_with_default(FLAGS.meta_lr, ())
 		self.meta_test_num_inner_updates = meta_test_num_inner_updates
 		self.loss_func = xent
@@ -40,7 +42,6 @@ class MAML:
 			lossesb = [[]]*num_inner_updates
 			accuraciesb = [[]]*num_inner_updates
 
-
 			if 'weights' in dir(self):
 				training_scope.reuse_variables()
 				weights = self.weights
@@ -48,6 +49,14 @@ class MAML:
 				# Define the weights - these should NOT be directly modified by the
 				# inner training loop
 				self.weights = weights = self.construct_weights()
+
+			if self.learn_inner_lr:
+				if 'inner_lrs' in dir(self):
+					training_scope.reuse_variables()
+					inner_lrs = self.inner_lrs
+				else:
+					self.inner_rls = inner_lrs = self.construct_inner_learning_rates(
+						num_inner_updates, weights)
 
 
 			def task_inner_loop(inp, reuse=True):
@@ -86,22 +95,23 @@ class MAML:
 				# after i+1 inner gradient updates
 				task_outputbs, task_lossesb, task_accuraciesb = [], [], []
 
-				for _ in range(num_inner_updates):
+				for k in range(num_inner_updates):
 					# compute loss with respect to group a
 					outputa = self.forward_conv(inputa, weights, reuse=True, scope='a')
 					lossa = self.loss_func(outputa, labela)
 
 					# compute gradients
 					weight_keys = list(weights.keys())
-					weight_values = [weights[k] for k in weight_keys]
-					weight_grads = tf.gradients(lossa, weight_values)
+					weight_vars = [weights[k] for k in weight_keys]
+					weight_grads = tf.gradients(lossa, weight_vars)
 
 					# take a gradient step
-					updated_weight_values = [(w - self.inner_update_lr * g)
-						for w, g in zip(weight_values, weight_grads)]
-					print(updated_weight_values[0])
-					for key, value in zip(weight_keys, updated_weight_values):
-						weights[key] = value
+					if self.learn_inner_lr:
+						for key, var, grad in zip(weight_keys, weight_vars, weight_grads):
+							weights[key] = var - inner_lrs[k][key] * grad
+					else:
+						for key, var, grad in zip(weight_keys, weight_vars, weight_grads):
+							weights[key] = var - self.inner_update_lr * grad
 
 					# evaluate new weights on group b
 					outputb = self.forward_conv(inputb, weights, reuse=reuse, scope='b')
@@ -163,6 +173,19 @@ class MAML:
 		weights['w5'] = tf.Variable(tf.random_normal([self.dim_hidden, self.dim_output]), name='w5')
 		weights['b5'] = tf.Variable(tf.zeros([self.dim_output]), name='b5')
 		return weights
+
+	def construct_inner_learning_rates(self, num_inner_updates, weights):
+		'''create a different learning rate for each inner update and for each weight in a dictionary'''
+		inner_lrs = []
+		for k in range(num_inner_updates):
+			step_inner_lrs = {}
+			for key in weights:
+				step_inner_lrs[key] = tf.Variable(
+					initial_value=self.inner_update_lr,
+					dtype=tf.float32,
+					name="{}_inner_lr_step{}".format(key, k))
+			inner_lrs.append(step_inner_lrs)
+		return inner_lrs
 
 	def forward_conv(self, inp, weights, reuse=False, scope=''):
 		# reuse is for the normalization parameters.

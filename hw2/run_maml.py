@@ -167,7 +167,9 @@ def main():
 	dim_output = data_generator.dim_output
 	dim_input = data_generator.dim_input
 	meta_test_num_inner_updates = FLAGS.meta_test_num_inner_updates
-	model = MAML(dim_input, dim_output, meta_test_num_inner_updates=meta_test_num_inner_updates)
+	model = MAML(dim_input, dim_output,
+		meta_test_num_inner_updates=meta_test_num_inner_updates,
+		learn_inner_lr=FLAGS.learn_inner_update_lr)
 	model.construct_model(prefix='maml')
 	model.summ_op = tf.summary.merge_all()
 
@@ -187,6 +189,8 @@ def main():
 		FLAGS.meta_train_inner_update_lr = FLAGS.inner_update_lr
 
 	exp_string = 'cls_'+str(FLAGS.n_way)+'.mbs_'+str(FLAGS.meta_batch_size) + '.k_shot_' + str(FLAGS.meta_train_k_shot) + '.inner_numstep' + str(FLAGS.num_inner_updates) + '.inner_updatelr' + str(FLAGS.meta_train_inner_update_lr)
+	if FLAGS.learn_inner_update_lr:
+		exp_string += ".learn_inner_lr"
 
 	resume_itr = 0
 	model_file = None
